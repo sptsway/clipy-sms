@@ -4,6 +4,21 @@ Go daemon (`daemon/`) + SwiftUI menu bar app (`app/`) that receives forwarded SM
 Android phone over the LAN. See `docs/PROTOCOL.md` and `docs/ARCHITECTURE.md` for the design;
 this file is just the practical "how do I run/debug/reset this" reference.
 
+## Using the menu
+
+Each row shows `OTP:<code-or-nil>  SMS preview…  —  Sender · HH:mm`. The OTP code is a
+display-only best-effort guess (keyword-proximity regex, client-side) — the daemon always stores
+and forwards the full, untouched body regardless of whether a code was guessed. The preview is
+length-capped because macOS sizes the *whole* dropdown menu to its widest row, so an uncapped
+long SMS would stretch every item in the menu, not just that one row.
+
+**Click** a row to open a small borderless popup near the click, with the full message as
+selectable text and a Copy button. It behaves like a normal window (not always on top, doesn't
+follow you across Spaces) but has no title bar and won't show in Mission Control. (An earlier
+version tried keeping this fully inside the dropdown via a submenu — NSMenu items can never
+support text selection, so that traded selection away entirely; this popup gets selection back
+at the cost of being a separate — if minimal — window.)
+
 ## Where everything lives
 
 ```
@@ -12,7 +27,10 @@ this file is just the practical "how do I run/debug/reset this" reference.
   messages.enc     encrypted SMS history (0600)
   config.json      settings (max messages, port, clipboard delay, ...)
   otpd.sock        Unix socket the menu bar app talks to
-  bin/             installed otpd + OTPForwarder binaries (only if autostart is installed)
+  bin/otpd         installed daemon binary (only if autostart is installed)
+
+~/Applications/OTPForwarder.app   the menu bar app, as a real double-clickable bundle
+                                   (only if autostart is installed)
 
 ~/Library/Logs/OTPForwarder/
   otpd.log         daemon stdout/stderr (only if autostart is installed)
@@ -46,12 +64,38 @@ scripts/install-login-items.sh     # builds release binaries, installs 2 LaunchA
 scripts/uninstall-login-items.sh   # stops + removes them (pass --purge-data to also wipe pairing/history)
 ```
 
-This is the "quick" path — no `.app` bundle, no code signing, just `launchd` running the two
-built binaries. Because of that, the Settings window's "Launch at Login" toggle is currently a
-no-op (it calls `SMAppService`, which needs a real signed `.app` bundle) — manage autostart with
-these scripts instead. Quitting the app from its menu works normally (won't auto-relaunch);
-`otpd` restarts on crash (`KeepAlive: true`) since it has no "Quit" of its own — stop it with the
-uninstall script or `launchctl bootout gui/$(id -u)/com.otpforwarder.otpd`, not `kill`.
+`install-login-items.sh` builds `otpd` and a release build of the app, wraps the app in a real
+(ad-hoc signed) `.app` bundle at `~/Applications/OTPForwarder.app`, and registers two
+`~/Library/LaunchAgents` plists so both start automatically at every login. Re-running it after
+pulling new code is safe and expected — it rebuilds and reloads both cleanly.
+
+The Settings window's "Launch at Login" toggle is still a no-op (it calls `SMAppService`, which
+needs a proper Developer-ID-signed bundle registered through the App Store/notarization path,
+not an ad-hoc one) — manage autostart with these scripts instead of that toggle.
+
+## Starting, quitting, restarting
+
+The daemon (`otpd`) and the UI (`OTPForwarder`) are two independent processes with two
+independent LaunchAgents. Quitting one never affects the other.
+
+- **Quit the UI**: use its menu's "Quit" item (or `⌘Q`/Force Quit if needed). The daemon keeps
+  running — pairing and message forwarding are unaffected, you just lose the menu bar icon.
+- **Restart the UI, no Terminal needed**: open `~/Applications/OTPForwarder.app` again —
+  double-click it in Finder, find it in Spotlight (`⌘Space`, type "OTPForwarder"), or Launchpad.
+  The very first time, macOS will refuse with "unidentified developer" since it's only ad-hoc
+  signed — right-click → Open once to clear that; every launch after works normally, including
+  double-click.
+- **The daemon should never need manual restarting**: it has `RunAtLoad` (starts at every login)
+  and `KeepAlive: true` (auto-restarts if it ever crashes) — nothing in the UI can stop it, and a
+  reboot brings it back on its own. If you ever do need to stop it deliberately, use
+  `scripts/uninstall-login-items.sh` or `launchctl bootout gui/$(id -u)/com.otpforwarder.otpd`,
+  not `kill` (which `KeepAlive` would just immediately undo).
+- **Pairing survives all of the above.** It's persisted to `identity.json`, not held in memory —
+  restarting either process, or both, never requires re-pairing the phone. Only "Unpair" or
+  deleting `identity.json` does.
+- **The UI can't accidentally run twice.** An `flock`-based single-instance guard makes a
+  duplicate launch (e.g. LaunchAgent + a manual `open` racing each other) a silent no-op instead
+  of a second menu bar icon.
 
 ## Debugging via the IPC socket
 
@@ -127,7 +171,9 @@ cd app && swift build
   daemon bug — the real daemon's `pair.start` always uses base64url-without-padding
   (`base64.RawURLEncoding` in `daemon/internal/daemon/handler.go`).
 - **Notifications don't show / crash the app**: `UNUserNotificationCenter` requires a real,
-  LaunchServices-registered `.app` bundle. Running via `swift run`/`swift build` debug binaries
-  disables notifications gracefully (checked via `Bundle.main.bundlePath.hasSuffix(".app")`); the
-  release binaries installed by `install-login-items.sh` are still bare executables too, so this
-  still applies until real `.app` packaging exists.
+  LaunchServices-registered `.app` bundle — it isn't just a nice-to-have, calling it from a bare
+  executable actually *crashes* the process (`bundleProxyForCurrentProcess is nil`). Running via
+  `swift run`/`swift build` debug binaries disables notifications gracefully instead of crashing
+  (checked via `Bundle.main.bundlePath.hasSuffix(".app")`). The `~/Applications/OTPForwarder.app`
+  bundle `install-login-items.sh` creates satisfies this, so notifications work normally for the
+  installed/autostart version, launched either via the LaunchAgent or manually.

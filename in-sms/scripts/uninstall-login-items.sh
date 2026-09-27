@@ -10,6 +10,7 @@ set -euo pipefail
 DATA_DIR="$HOME/Library/Application Support/OTPForwarder"
 BIN_DIR="$DATA_DIR/bin"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
+APP_BUNDLE="$HOME/Applications/OTPForwarder.app"
 UID_NUM="$(id -u)"
 
 OTPD_LABEL="com.otpforwarder.otpd"
@@ -22,7 +23,7 @@ for label in "$OTPD_LABEL" "$APP_LABEL"; do
 done
 
 echo "==> Removing installed binaries"
-rm -rf "$BIN_DIR"
+rm -rf "$BIN_DIR" "$APP_BUNDLE"
 
 if [[ "${1:-}" == "--purge-data" ]]; then
 	echo "==> Purging pairing/history data (you will need to re-pair)"

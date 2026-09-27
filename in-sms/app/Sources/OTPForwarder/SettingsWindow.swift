@@ -14,16 +14,14 @@ struct SettingsWindow: View {
         Form {
             Section("History") {
                 Stepper(value: $draft.maxMessages, in: 10...1000, step: 10) {
-                    LabeledContent("Max stored messages", value: "\(draft.maxMessages)")
+                    Text("Max stored messages: \(draft.maxMessages)")
                 }
                 Toggle("Auto-copy newest code", isOn: $draft.autoCopyNewest)
             }
 
             Section("Clipboard") {
                 Stepper(value: $draft.clipboardClearSeconds, in: 0...300, step: 5) {
-                    LabeledContent("Clear after") {
-                        Text(draft.clipboardClearSeconds == 0 ? "Never" : "\(draft.clipboardClearSeconds)s")
-                    }
+                    Text("Clear after: \(draft.clipboardClearSeconds == 0 ? "Never" : "\(draft.clipboardClearSeconds)s")")
                 }
             }
 
@@ -34,7 +32,10 @@ struct SettingsWindow: View {
             Section("Startup") {
                 Toggle("Launch at login", isOn: launchAtLoginBinding)
                 if let launchAtLoginError {
-                    Text(launchAtLoginError).font(.caption).foregroundStyle(.red)
+                    Text(launchAtLoginError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -55,7 +56,7 @@ struct SettingsWindow: View {
             }
         }
         .padding(20)
-        .frame(width: 360)
+        .frame(width: 420)
         .onAppear { draft = model.settings }
         .onChange(of: model.isSettingsWindowPresented) { presented in
             if !presented { dismiss() }

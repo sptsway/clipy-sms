@@ -5,6 +5,7 @@ struct OTPForwarderApp: App {
     @StateObject private var model: AppModel
 
     init() {
+        SingleInstanceGuard.acquireOrExit()
         let client = Self.makeClient()
         _model = StateObject(wrappedValue: AppModel(client: client))
         NotificationManager.shared.requestAuthorizationIfNeeded()
