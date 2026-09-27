@@ -95,7 +95,6 @@ type Message struct {
 	ReceivedAt string `json:"received_at"` // RFC3339
 	Sender     string `json:"sender"`
 	Body       string `json:"body"`
-	Code       string `json:"code"`
 	Sim        int    `json:"sim,omitempty"`
 }
 

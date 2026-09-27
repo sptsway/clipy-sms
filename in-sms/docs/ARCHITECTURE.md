@@ -154,15 +154,15 @@ appended. Each record:
   "received_at": "<RFC3339>",
   "sender": "<string>",
   "body": "<string>",
-  "code": "<string, extracted OTP or empty>",
   "sim": 1
 }
 ```
 
-Code extraction: a regex looking for a 4–8 digit run within ~30 characters of a case-insensitive
-keyword match on `otp`, `code`, or `verification` (exact regex and its unit tests land in
-Milestone 2); if nothing matches, `code` is stored empty and the UI falls back to showing the raw
-body.
+*(Assumption, revised from the original prompt.md: no OTP-code extraction at all.* A first pass
+tried a keyword-proximity regex, then a bare 4-8-digit-run regex; both produced false positives
+or missed real OTP messages that don't contain a recognizable keyword or fall outside that digit
+range. The daemon now stores and forwards the full body untouched — the UI displays and copies
+the whole SMS rather than a parsed-out code.)
 
 ### 3.5 HTTP server (`internal/server`)
 
@@ -226,7 +226,7 @@ testing before it exists:
 
 - Deployment target macOS 13, `LSUIElement = YES` (no Dock icon), `MenuBarExtra(.menu)` styled to
   look like a native `NSMenu`.
-- **`MenuContent`** — disabled "Recent" header, latest 5 messages as `code  Sender · HH:mm`,
+- **`MenuContent`** — disabled "Recent" header, latest 5 messages as `body  —  Sender · HH:mm`,
   "Older" chunked into submenus of 20 (fetched via `messages.list`), a status line (paired device
   + last seen, via `device.status`/`device.lastSeen` events), then `Pair New Phone…`, `Unpair`,
   `Clear History`, `Settings…`, `Quit`.
@@ -236,14 +236,15 @@ testing before it exists:
 - **`SettingsWindow`** — bound to `settings.get`/`settings.set`: max messages, auto-copy newest,
   clipboard clear delay, port, launch at login (toggles `SMAppService.agent(...)` registration),
   notifications on/off.
-- **`ClipboardManager`** — plain click copies `code` via `messages.get`; ⌥-click copies the full
-  `body` instead. Every write marks the pasteboard item transient/concealed
-  (`org.nspasteboard.TransientType` / `ConcealedType`) so clipboard managers skip it. After the
-  configured delay, clears the pasteboard **only if** `NSPasteboard.general.changeCount` still
-  equals the value captured right after the copy — i.e. nothing else was copied in between.
+- **`ClipboardManager`** — a menu click copies the full SMS `body` (per §3.4's revised assumption,
+  there is no separate "code" to distinguish with a modifier key anymore). Every write marks the
+  pasteboard item transient/concealed (`org.nspasteboard.TransientType` / `ConcealedType`) so
+  clipboard managers skip it. After the configured delay, clears the pasteboard **only if**
+  `NSPasteboard.general.changeCount` still equals the value captured right after the copy — i.e.
+  nothing else was copied in between.
 - **Notifications** — `UNUserNotificationCenter`, triggered off `message.new` events (when enabled
-  in settings), showing code + sender; tapping one copies the code via the same `ClipboardManager`
-  path used for a menu click.
+  in settings), showing the body + sender; tapping one copies the body via the same
+  `ClipboardManager` path used for a menu click.
 
 ## 6. Packaging & lifecycle (detailed in Milestone 5)
 

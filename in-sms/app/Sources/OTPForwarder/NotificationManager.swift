@@ -1,8 +1,8 @@
 import Foundation
 import UserNotifications
 
-/// Wraps UNUserNotificationCenter (ARCHITECTURE.md §5): shows code + sender
-/// for a new message, and copies the code when the notification is tapped.
+/// Wraps UNUserNotificationCenter (ARCHITECTURE.md §5): shows the full SMS
+/// body + sender for a new message, and copies the body when tapped.
 ///
 /// Hard requirement, confirmed by testing (not just a doc caveat):
 /// UNUserNotificationCenter.current() *crashes* the process
@@ -18,9 +18,9 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     private let isSupported = Bundle.main.bundlePath.hasSuffix(".app")
 
-    /// Set by AppModel so a notification tap can copy the code using the
+    /// Set by AppModel so a notification tap can copy the body using the
     /// user's current clipboard-clear-delay setting.
-    var onTapped: ((_ messageId: String, _ code: String, _ body: String) -> Void)?
+    var onTapped: ((_ messageId: String, _ body: String) -> Void)?
 
     private override init() {
         super.init()
@@ -33,12 +33,12 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func notify(sender: String, code: String, body: String, messageId: String) {
+    func notify(sender: String, body: String, messageId: String) {
         guard isSupported else { return }
         let content = UNMutableNotificationContent()
         content.title = sender
-        content.body = code.isEmpty ? body : code
-        content.userInfo = ["messageId": messageId, "code": code, "body": body]
+        content.body = body
+        content.userInfo = ["messageId": messageId, "body": body]
         let request = UNNotificationRequest(identifier: messageId, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
@@ -50,9 +50,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     ) {
         let info = response.notification.request.content.userInfo
         let id = info["messageId"] as? String ?? ""
-        let code = info["code"] as? String ?? ""
         let body = info["body"] as? String ?? ""
-        onTapped?(id, code, body)
+        onTapped?(id, body)
         completionHandler()
     }
 

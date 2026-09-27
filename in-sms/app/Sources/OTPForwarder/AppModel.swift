@@ -34,9 +34,9 @@ final class AppModel: ObservableObject {
 
     init(client: IPCClient) {
         self.client = client
-        NotificationManager.shared.onTapped = { [weak self] _, code, _ in
-            guard let self, !code.isEmpty else { return }
-            ClipboardManager.shared.copy(code, clearAfterSeconds: self.settings.clipboardClearSeconds)
+        NotificationManager.shared.onTapped = { [weak self] _, body in
+            guard let self else { return }
+            ClipboardManager.shared.copy(body, clearAfterSeconds: self.settings.clipboardClearSeconds)
         }
         eventTask = Task { [weak self] in await self?.consumeEvents() }
         Task { [weak self] in await self?.refreshAll() }
@@ -155,11 +155,10 @@ final class AppModel: ObservableObject {
                 totalMessages += 1
 
                 if settings.autoCopyNewest {
-                    let text = msg.code.isEmpty ? msg.body : msg.code
-                    ClipboardManager.shared.copy(text, clearAfterSeconds: settings.clipboardClearSeconds)
+                    ClipboardManager.shared.copy(msg.body, clearAfterSeconds: settings.clipboardClearSeconds)
                 }
                 if settings.notificationsEnabled {
-                    NotificationManager.shared.notify(sender: msg.sender, code: msg.code, body: msg.body, messageId: msg.id)
+                    NotificationManager.shared.notify(sender: msg.sender, body: msg.body, messageId: msg.id)
                 }
 
             case .pairingStatus(let status):
@@ -181,12 +180,7 @@ final class AppModel: ObservableObject {
 
     // MARK: - Actions
 
-    func copyCode(_ message: SMSMessage) {
-        let text = message.code.isEmpty ? message.body : message.code
-        ClipboardManager.shared.copy(text, clearAfterSeconds: settings.clipboardClearSeconds)
-    }
-
-    func copyFullBody(_ message: SMSMessage) {
+    func copy(_ message: SMSMessage) {
         ClipboardManager.shared.copy(message.body, clearAfterSeconds: settings.clipboardClearSeconds)
     }
 

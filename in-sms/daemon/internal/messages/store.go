@@ -17,7 +17,6 @@ type Message struct {
 	ReceivedAt time.Time
 	Sender     string
 	Body       string
-	Code       string
 	Sim        int
 }
 
