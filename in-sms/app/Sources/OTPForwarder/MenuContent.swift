@@ -52,30 +52,22 @@ struct MenuContent: View {
     }
 }
 
-/// One "code  Sender · HH:mm" row. Plain click copies the code; holding ⌥
-/// copies the full SMS body instead (prompt.md's clipboard behavior).
+/// One "SMS body  —  Sender · HH:mm" row. Click copies the full body — the
+/// menu shows the whole SMS rather than trying to pick out a code, since
+/// not every OTP message contains one of the usual keywords.
 struct MessageRow: View {
     let message: SMSMessage
     @ObservedObject var model: AppModel
 
     var body: some View {
-        Button(action: handleClick) {
+        Button(action: { model.copy(message) }) {
             Text(label)
         }
     }
 
     private var label: String {
         let time = message.receivedDate.formatted(date: .omitted, time: .shortened)
-        let code = message.code.isEmpty ? "(no code)" : message.code
-        return "\(code)  \(message.sender) · \(time)"
-    }
-
-    private func handleClick() {
-        if NSEvent.modifierFlags.contains(.option) {
-            model.copyFullBody(message)
-        } else {
-            model.copyCode(message)
-        }
+        return "\(message.body)  —  \(message.sender) · \(time)"
     }
 }
 

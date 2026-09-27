@@ -216,8 +216,8 @@ func TestAcceptMessageValidatesAndStores(t *testing.T) {
 	}
 
 	list, _ := h.MessagesList(context.Background(), ipc.MessagesListParams{Offset: 0, Limit: 10})
-	if list.Total != 1 || list.Messages[0].Code != "555555" {
-		t.Fatalf("expected the message to be stored with an extracted code, got %+v", list)
+	if list.Total != 1 || list.Messages[0].Body != "Your OTP is 555555" {
+		t.Fatalf("expected the message to be stored with its full body, got %+v", list)
 	}
 }
 
@@ -328,7 +328,7 @@ func TestMessagesFlow(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	store.Append(messages.Message{ID: "a", Sender: "1234", Body: "hi", Code: "1234"}, 0)
+	store.Append(messages.Message{ID: "a", Sender: "1234", Body: "hi"}, 0)
 
 	list, err := h.MessagesList(ctx, ipc.MessagesListParams{Offset: 0, Limit: 10})
 	if err != nil {

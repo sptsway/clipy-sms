@@ -79,13 +79,12 @@ struct SMSMessage: Codable, Identifiable, Equatable {
     let receivedAt: String // RFC3339, from the daemon
     let sender: String
     let body: String
-    let code: String
     let sim: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
         case receivedAt = "received_at"
-        case sender, body, code, sim
+        case sender, body, sim
     }
 
     /// Parsed once for display; falls back to .distantPast if the daemon

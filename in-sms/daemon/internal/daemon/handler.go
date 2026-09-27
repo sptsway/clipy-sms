@@ -357,7 +357,6 @@ func (h *Handler) AcceptMessage(envelope []byte, now time.Time) ([]byte, error) 
 		ReceivedAt: now,
 		Sender:     msg.Sender,
 		Body:       msg.Body,
-		Code:       messages.ExtractCode(msg.Body),
 		Sim:        msg.Sim,
 	}
 	h.msgs.Append(stored, h.cfg.MaxMessages)
@@ -429,7 +428,6 @@ func toIPCMessage(m messages.Message) ipc.Message {
 		ReceivedAt: m.ReceivedAt.Format(time.RFC3339),
 		Sender:     m.Sender,
 		Body:       m.Body,
-		Code:       m.Code,
 		Sim:        m.Sim,
 	}
 }
