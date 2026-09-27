@@ -1,14 +1,9 @@
-// Package messages holds the daemon's in-memory message history, so the IPC
-// layer (messages.list/messages.get/history.clear) has something real to
-// serve immediately.
-//
-// This is intentionally NOT the durable, encrypted-at-rest store described
-// in ARCHITECTURE.md §3.4 (messages.enc, AES-GCM under storage_key) — that
-// depends on the identity/key storage the crypto/pairing implementation
-// owns (see docs/CRYPTO_IMPLEMENTATION.md). Once the /v1/msg HTTP handler
-// exists and successfully decrypts+validates an incoming SMS, it should
-// call Store.Append here (or a persisted equivalent built the same way) as
-// its last step; Store's FIFO/pagination behavior can stay as-is either way.
+// Package messages holds the daemon's message history: an in-memory,
+// FIFO-capped Store backing the IPC layer (messages.list/messages.get/
+// history.clear), plus encrypted-at-rest persistence to messages.enc
+// (ARCHITECTURE.md §3.4) via persist.go. The /v1/msg HTTP handler calls
+// Store.Append after a message passes validation, then persists a snapshot;
+// LoadOrCreate reloads that snapshot at startup.
 package messages
 
 import (
@@ -92,4 +87,22 @@ func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.items = nil
+}
+
+// Snapshot returns a copy of all stored messages, oldest first — the shape
+// persist.go encrypts to disk.
+func (s *Store) Snapshot() []Message {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]Message(nil), s.items...)
+}
+
+// Restore replaces the store's contents with items (oldest first), as
+// loaded from disk by LoadOrCreate. It does not re-apply FIFO eviction —
+// callers are expected to pass in an already-capped list (as SaveEncrypted
+// always writes).
+func (s *Store) Restore(items []Message) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.items = append([]Message(nil), items...)
 }

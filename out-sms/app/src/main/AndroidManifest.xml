@@ -1,0 +1,54 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+
+    <application
+        android:name=".OtpFwdApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.OtpForwarder"
+        android:usesCleartextTraffic="true">
+        <!--
+          usesCleartextTraffic: PROTOCOL.md §4.1 is explicit that /v1/pair and /v1/msg are plain
+          HTTP by design ("no TLS — every payload is independently authenticated and encrypted"),
+          scoped to the LAN between this app and the one paired Mac. Android blocks cleartext
+          traffic by default from targetSdk 28+, so this is a required, not optional, manifest
+          entry for this app to function at all against the documented protocol — not a general
+          network-security relaxation, since this app makes no other network calls (no non-goals
+          items involve any other host).
+        -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.OtpForwarder">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver
+            android:name=".sms.SmsReceivedReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <!--
+              SMS_RECEIVED is a protected system broadcast (only the OS can send it), so exported
+              receivers registered for it cannot be spoofed by another app — see DESIGN.md §4.
+            -->
+            <intent-filter android:priority="500">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

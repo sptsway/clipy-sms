@@ -1,0 +1,60 @@
+# Gradle
+.gradle/
+build/
+*/build/
+*/*/build/
+gradle-app.setting
+!gradle-wrapper.jar
+.gradletasknamecache
+
+# Local configuration file (contains SDK path, per-machine, never commit)
+local.properties
+
+# Log/OS files
+*.log
+.DS_Store
+
+# Android Studio / IntelliJ
+.idea/*
+!.idea/codeStyles
+!.idea/runConfigurations.xml
+*.iml
+*.ipr
+*.iws
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+freeline.py
+freeline/
+freeline_project_description.json
+
+# Keystores (never commit real signing keys)
+*.jks
+*.keystore
+
+# Google services (if added later; contains project-specific config)
+google-services.json
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+
+# Instrumented test / lint / profiling
+*.hprof
+lint/intermediates/
+lint/generated/
+lint/outputs/
+lint/tmp/
+
+# Kotlin
+.kotlin/

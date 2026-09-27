@@ -24,9 +24,11 @@ enum IPCError: Error, LocalizedError {
     }
 }
 
-/// Everything the UI needs from whatever is on the other end of the socket —
-/// implemented by UnixSocketIPCClient (talks to the real otpd) and by
-/// MockIPCClient (canned data, for running the UI before/without a daemon).
+/// Everything the UI needs from whatever is on the other end of the socket.
+/// The only production implementation is UnixSocketIPCClient, which talks to
+/// the real otpd; DisconnectedIPCClient below is the fallback when it can't
+/// connect — it reports the honest "not connected" state rather than
+/// fabricating any data.
 protocol IPCClient: AnyObject {
     var events: AsyncStream<IPCEvent> { get }
 
@@ -43,4 +45,28 @@ protocol IPCClient: AnyObject {
 
     func settingsGet() async throws -> AppSettings
     func settingsSet(_ settings: AppSettings) async throws -> AppSettings
+}
+
+/// Used when otpd wasn't reachable at launch (e.g. the daemon hasn't started
+/// yet, or isn't installed as a login item). Every call fails with
+/// `.notConnected` — no sample/fake data — so the UI shows an honest "Daemon
+/// not running" status instead of anything invented.
+///
+/// Known limitation: this doesn't retry — if otpd starts after the UI does,
+/// the app keeps using this client until relaunched. Worth revisiting if
+/// startup ordering turns out to matter in practice (see ARCHITECTURE.md §6
+/// on SMAppService registration).
+final class DisconnectedIPCClient: IPCClient {
+    let events: AsyncStream<IPCEvent> = AsyncStream { _ in }
+
+    func pairStart() async throws -> PairStartResult { throw IPCError.notConnected }
+    func pairStatus() async throws -> PairStatusResult { throw IPCError.notConnected }
+    func pairCancel() async throws { throw IPCError.notConnected }
+    func deviceStatus() async throws -> DeviceStatusResult { throw IPCError.notConnected }
+    func deviceUnpair() async throws { throw IPCError.notConnected }
+    func messagesList(offset: Int, limit: Int) async throws -> MessagesListResult { throw IPCError.notConnected }
+    func messagesGet(id: String) async throws -> SMSMessage { throw IPCError.notConnected }
+    func historyClear() async throws { throw IPCError.notConnected }
+    func settingsGet() async throws -> AppSettings { throw IPCError.notConnected }
+    func settingsSet(_ settings: AppSettings) async throws -> AppSettings { throw IPCError.notConnected }
 }

@@ -34,22 +34,22 @@ type eventEnvelope struct {
 
 // Method names (ARCHITECTURE.md §3.6).
 const (
-	MethodPairStart     = "pair.start"
-	MethodPairStatus    = "pair.status"
-	MethodPairCancel    = "pair.cancel"
-	MethodDeviceStatus  = "device.status"
-	MethodDeviceUnpair  = "device.unpair"
-	MethodMessagesList  = "messages.list"
-	MethodMessagesGet   = "messages.get"
-	MethodHistoryClear  = "history.clear"
-	MethodSettingsGet   = "settings.get"
-	MethodSettingsSet   = "settings.set"
+	MethodPairStart    = "pair.start"
+	MethodPairStatus   = "pair.status"
+	MethodPairCancel   = "pair.cancel"
+	MethodDeviceStatus = "device.status"
+	MethodDeviceUnpair = "device.unpair"
+	MethodMessagesList = "messages.list"
+	MethodMessagesGet  = "messages.get"
+	MethodHistoryClear = "history.clear"
+	MethodSettingsGet  = "settings.get"
+	MethodSettingsSet  = "settings.set"
 )
 
 // Event names (ARCHITECTURE.md §3.6).
 const (
-	EventMessageNew    = "message.new"
-	EventPairingStatus = "pairing.status"
+	EventMessageNew     = "message.new"
+	EventPairingStatus  = "pairing.status"
 	EventDeviceLastSeen = "device.lastSeen"
 )
 
