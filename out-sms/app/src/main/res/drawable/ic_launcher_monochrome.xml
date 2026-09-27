@@ -3,14 +3,13 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- A key glyph, matching the Mac menu bar app's "key.fill" SF Symbol icon for visual
-         consistency across both halves of the project. Bow (ring) on the left, shaft + two
-         teeth on the right. -->
+    <!-- Same key glyph as ic_launcher_foreground, single-color for Android 13+ themed
+         (Material You) icons — the system applies its own tint over this shape. -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#FF000000"
         android:fillType="evenOdd"
         android:pathData="M27,54 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0 z M35.5,54 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 z" />
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#FF000000"
         android:pathData="M57,50.5 L84,50.5 L84,68 L80,68 L80,57.5 L72,57.5 L72,64 L68,64 L68,57.5 L57,57.5 Z" />
 </vector>
