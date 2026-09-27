@@ -10,7 +10,7 @@ struct MenuContent: View {
 
     var body: some View {
         Group {
-            Text("Recent").font(.caption).foregroundStyle(.secondary)
+            Text("Recent  (click to view full message)").font(.caption).foregroundStyle(.secondary)
 
             if model.recentMessages.isEmpty {
                 Text("No messages yet").disabled(true)
@@ -52,22 +52,33 @@ struct MenuContent: View {
     }
 }
 
-/// One "SMS body  —  Sender · HH:mm" row. Click copies the full body — the
-/// menu shows the whole SMS rather than trying to pick out a code, since
-/// not every OTP message contains one of the usual keywords.
+/// One "OTP:xyz  SMS preview  —  Sender · HH:mm" row. Click opens the full
+/// message in a floating popup near the click, with selectable text and a
+/// Copy button — the preview shown here is capped in length regardless,
+/// since NSMenu sizes the whole menu to its widest row, so an uncapped long
+/// SMS would stretch every row, including Settings/Quit/etc.
 struct MessageRow: View {
     let message: SMSMessage
     @ObservedObject var model: AppModel
 
+    private static let previewLimit = 45
+
     var body: some View {
-        Button(action: { model.copy(message) }) {
+        Button(action: {
+            MessageDetailPanelController.shared.show(message, model: model)
+        }) {
             Text(label)
         }
     }
 
     private var label: String {
         let time = message.receivedDate.formatted(date: .omitted, time: .shortened)
-        return "\(message.body)  —  \(message.sender) · \(time)"
+        let body = message.body
+        let preview = body.count > Self.previewLimit
+            ? String(body.prefix(Self.previewLimit)) + "…"
+            : body
+        let otp = message.otpHint ?? "nil"
+        return "OTP:\(otp)  \(preview)  —  \(message.sender) · \(time)"
     }
 }
 

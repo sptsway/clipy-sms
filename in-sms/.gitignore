@@ -1,2 +1,10 @@
 prompt.md
 
+# Compiled Go binaries — build with `go build`/`go run`, never commit the output
+daemon/otpd
+daemon/fakephone
+daemon/cmd/*/otpd
+daemon/cmd/*/fakephone
+
+# IDE per-user state (never machine-portable, unlike the rest of .idea/)
+.idea/workspace.xml
