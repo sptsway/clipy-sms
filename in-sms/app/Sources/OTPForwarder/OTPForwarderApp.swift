@@ -27,13 +27,13 @@ struct OTPForwarderApp: App {
         .windowResizability(.contentSize)
     }
 
-    /// Prefers the real daemon; falls back to canned sample data so the menu
-    /// is fully browsable even before otpd's pairing/message path exists
-    /// (docs/CRYPTO_IMPLEMENTATION.md) — e.g. during UI-only development.
+    /// Connects to the real daemon. If otpd isn't running yet,
+    /// DisconnectedIPCClient takes over so the UI shows "Daemon not
+    /// running" instead of crashing or inventing data.
     private static func makeClient() -> IPCClient {
         if let real = try? UnixSocketIPCClient() {
             return real
         }
-        return MockIPCClient()
+        return DisconnectedIPCClient()
     }
 }

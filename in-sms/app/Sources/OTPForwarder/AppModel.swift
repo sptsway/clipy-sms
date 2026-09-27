@@ -19,6 +19,10 @@ final class AppModel: ObservableObject {
     @Published var pairingStatus = PairStatusResult(state: .idle, attemptsLeft: 5, expiresAt: nil)
     @Published var settings = AppSettings.defaults
     @Published var lastErrorMessage: String?
+    /// False whenever the last IPC call failed because otpd isn't reachable
+    /// (as opposed to a call that reached the daemon but was itself
+    /// rejected). Drives the "Daemon not running" status line.
+    @Published var isConnected = true
 
     @Published var isPairWindowPresented = false
     @Published var isSettingsWindowPresented = false
@@ -63,6 +67,7 @@ final class AppModel: ObservableObject {
     }
 
     var statusLine: String {
+        guard isConnected else { return "Daemon not running" }
         guard deviceStatus.paired else { return "No phone paired" }
         let name = deviceStatus.deviceName ?? "Unknown device"
         guard let lastSeen = deviceStatus.lastSeen else { return "\(name) · never seen" }
@@ -72,6 +77,22 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Refreshing
+
+    /// Records a successful IPC round trip — clears the "daemon not
+    /// running" state, since we clearly just reached it.
+    private func markConnected() {
+        isConnected = true
+    }
+
+    /// Records an IPC failure. Distinguishes "otpd isn't reachable at all"
+    /// (IPCError.notConnected) from any other failure, since only the
+    /// former should flip the status line to "Daemon not running".
+    private func handle(_ error: Error) {
+        lastErrorMessage = error.localizedDescription
+        if case IPCError.notConnected = error {
+            isConnected = false
+        }
+    }
 
     func refreshAll() async {
         await refreshMessages()
@@ -85,33 +106,42 @@ final class AppModel: ObservableObject {
             let result = try await client.messagesList(offset: 0, limit: Self.recentCount)
             recentMessages = result.messages
             totalMessages = result.total
+            markConnected()
         } catch {
-            lastErrorMessage = error.localizedDescription
+            handle(error)
         }
     }
 
     func fetchOlderChunk(offset: Int, limit: Int) async -> [SMSMessage] {
         do {
-            return try await client.messagesList(offset: offset, limit: limit).messages
+            let messages = try await client.messagesList(offset: offset, limit: limit).messages
+            markConnected()
+            return messages
         } catch {
-            lastErrorMessage = error.localizedDescription
+            handle(error)
             return []
         }
     }
 
     func refreshDeviceStatus() async {
-        do { deviceStatus = try await client.deviceStatus() }
-        catch { lastErrorMessage = error.localizedDescription }
+        do {
+            deviceStatus = try await client.deviceStatus()
+            markConnected()
+        } catch { handle(error) }
     }
 
     func refreshSettings() async {
-        do { settings = try await client.settingsGet() }
-        catch { lastErrorMessage = error.localizedDescription }
+        do {
+            settings = try await client.settingsGet()
+            markConnected()
+        } catch { handle(error) }
     }
 
     func refreshPairingStatus() async {
-        do { pairingStatus = try await client.pairStatus() }
-        catch { lastErrorMessage = error.localizedDescription }
+        do {
+            pairingStatus = try await client.pairStatus()
+            markConnected()
+        } catch { handle(error) }
     }
 
     // MARK: - Events
@@ -143,6 +173,7 @@ final class AppModel: ObservableObject {
                 deviceStatus = DeviceStatusResult(paired: true, deviceName: seen.deviceName, lastSeen: seen.lastSeen)
 
             case .connectionLost:
+                isConnected = false
                 lastErrorMessage = "Lost connection to the daemon."
             }
         }
@@ -162,38 +193,40 @@ final class AppModel: ObservableObject {
     func startPairing() async -> PairStartResult? {
         do {
             let result = try await client.pairStart()
+            markConnected()
             pairingStatus = PairStatusResult(state: .waiting, attemptsLeft: 5, expiresAt: result.expiresAt)
             return result
         } catch {
-            lastErrorMessage = error.localizedDescription
+            handle(error)
             return nil
         }
     }
 
     func cancelPairing() async {
-        do { try await client.pairCancel() }
-        catch { lastErrorMessage = error.localizedDescription }
+        do { try await client.pairCancel(); markConnected() }
+        catch { handle(error) }
         await refreshPairingStatus()
     }
 
     func unpair() async {
-        do { try await client.deviceUnpair() }
-        catch { lastErrorMessage = error.localizedDescription }
+        do { try await client.deviceUnpair(); markConnected() }
+        catch { handle(error) }
         await refreshDeviceStatus()
     }
 
     func clearHistory() async {
         do {
             try await client.historyClear()
+            markConnected()
             recentMessages = []
             totalMessages = 0
         } catch {
-            lastErrorMessage = error.localizedDescription
+            handle(error)
         }
     }
 
     func saveSettings(_ newSettings: AppSettings) async {
-        do { settings = try await client.settingsSet(newSettings) }
-        catch { lastErrorMessage = error.localizedDescription }
+        do { settings = try await client.settingsSet(newSettings); markConnected() }
+        catch { handle(error) }
     }
 }

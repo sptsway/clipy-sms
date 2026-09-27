@@ -256,11 +256,104 @@ map — no third-party dependency needed.)* A request that exceeds the bucket ge
 
 ## 6. Test vectors
 
-To be added during Milestone 2, generated directly from the Go implementation (not hand-computed
-here) so they're guaranteed to match the real code: one full pairing exchange (fixed `mac_priv`,
-`phone_priv`, `token` → resulting `k_p2m`, `k_m2p`, `key_id`, `confirm`) and one full message
-envelope (fixed key, nonce, plaintext → ciphertext bytes), each as fixed hex/base64 constants
-usable directly in both the Go test suite and, later, the Android implementation's own tests.
+Generated directly from the daemon's real Go implementation (`daemon/internal/crypto`), not
+hand-computed — so any other implementation (the Android sender included) that reproduces these
+outputs from these inputs is byte-for-byte wire-compatible. All values are lowercase hex unless
+noted; P-256 scalars/points are raw bytes (not base64) here for readability — encode as
+base64url-without-padding when placing them on the wire per §1.
+
+### 6.1 Pairing exchange
+
+Inputs (32-byte P-256 scalars, chosen as simple repeating patterns purely for readability — they
+are otherwise unremarkable valid private keys):
+
+```
+mac_priv   = 0101010101010101010101010101010101010101010101010101010101010101
+phone_priv = 0202020202020202020202020202020202020202020202020202020202020202
+token      = 0303030303030303030303030303030303030303030303030303030303030303
+```
+
+Derived (65-byte uncompressed points, `0x04 || X || Y`):
+
+```
+mac_pub   = 046ff03b949241ce1dadd43519e6960e0a85b41a69a05c328103aa2bce1594ca163c4f753a55bf01dc53f6c0b0c7eee78b40c6ff7d25a96e2282b989cef71c144a
+phone_pub = 04550f471003f3df97c3df506ac797f6721fb1a1fb7b8f6f83d224498a65c88e24136093d7012e509a73715cbd0b00a3cc0ff4b5c01b3ffa196ab1fb327036b8e6
+```
+
+`mac = HMAC-SHA256(token, "pair-v1" || mac_pub || phone_pub)`:
+
+```
+mac = 0243e701d05438855ac7f39e76977236a45dec668e47eb0107263fc7dddc1294
+```
+
+`okm = HKDF-SHA256(ikm=ECDH(mac_priv, phone_pub), salt=token, info="otpfwd-v1"||mac_pub||phone_pub, 64)`,
+split per §3.4:
+
+```
+k_p2m  = 7cde3a20477d5bd7ee84aea6fe96dc7fe230d24dda556ec7769d0752d78ecec4
+k_m2p  = 1cbd40e7fd5b57ccc4bfbffd01d8d9fad8bf9502eb2d1ab6fc0b394af5a0c765
+```
+
+`key_id = SHA-256("otpfwd-key-id" || k_p2m || k_m2p)[0:8]`:
+
+```
+key_id = 92fbce47412a0f01
+```
+
+`confirm = HMAC-SHA256(k_m2p, "confirm-v1")`:
+
+```
+confirm = a47be19aa070cd2f31baaa8c48027aee3edcc8c49a82e862d4545974676d8db7
+```
+
+Sanity check for an implementation: computing `ECDH(phone_priv, mac_pub)` instead (the phone's
+side) must produce the identical `ikm`, and therefore the identical `k_p2m`/`k_m2p`/`key_id` above.
+
+### 6.2 Message envelope
+
+Using `k_p2m` from §6.1 above, and a **fixed nonce for reproducibility only** — a real
+implementation must always generate a fresh random nonce per message; this vector fixes it purely
+so the ciphertext is checkable byte-for-byte:
+
+```
+key_id (from above) = 92fbce47412a0f01
+nonce                = 000102030405060708090a0b
+aad = version(0x01) || key_id = 0192fbce47412a0f01
+plaintext = {"id":"11111111-1111-1111-1111-111111111111","ts":1735689600000,"ctr":0,"sender":"38221","body":"Your OTP is 123456."}
+```
+
+`ciphertext ++ tag = AES-256-GCM-Seal(k_p2m, nonce, plaintext, aad)`:
+
+```
+fbe0658149d62940ce1664e3097a73c23e628f03521fe6876e29dd00758991642d2b3f82957fdda84f0b86990a25b11dd0448058561962e3a618720620e8e3c54c73d8caf260f56007fc58c0d1ad3c6500834a13336d03a446eec8e948fb9559f00904138877292d74331f8c1d36ea16e1596d15dd9d744687dd388c4432722b7998d4b7e49c
+```
+
+Full envelope (`aad || nonce || ciphertext++tag`):
+
+```
+0192fbce47412a0f01000102030405060708090a0bfbe0658149d62940ce1664e3097a73c23e628f03521fe6876e29dd00758991642d2b3f82957fdda84f0b86990a25b11dd0448058561962e3a618720620e8e3c54c73d8caf260f56007fc58c0d1ad3c6500834a13336d03a446eec8e948fb9559f00904138877292d74331f8c1d36ea16e1596d15dd9d744687dd388c4432722b7998d4b7e49c
+```
+
+### 6.3 Ack envelope
+
+Using `k_m2p` from §6.1, same `aad`, a different fixed nonce:
+
+```
+nonce     = 101112131415161718191a1b
+plaintext = {"id":"11111111-1111-1111-1111-111111111111","ctr":0}
+```
+
+`ciphertext ++ tag`:
+
+```
+c5a0aac12441e323f4660d1071f4642636fd7b9802b0713f3ded5a82a1c5ad61bcd76e535d2db6e550fcf781d70926df32cc3e9456f14b9ae0acb3bece77bcc0504deebb72
+```
+
+Full envelope:
+
+```
+0192fbce47412a0f01101112131415161718191a1bc5a0aac12441e323f4660d1071f4642636fd7b9802b0713f3ded5a82a1c5ad61bcd76e535d2db6e550fcf781d70926df32cc3e9456f14b9ae0acb3bece77bcc0504deebb72
+```
 
 ## Assumptions to confirm
 
